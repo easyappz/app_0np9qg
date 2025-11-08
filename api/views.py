@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model, authenticate
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Count
+from datetime import timedelta
 from rest_framework import status, generics, filters
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -26,9 +27,13 @@ from .serializers import (
     ListingDetailSerializer,
     ListingCreateSerializer,
     ListingUpdateSerializer,
+    AdminStatsSerializer,
+    AdminListingSerializer,
+    AdminUserSerializer,
+    ModerationSerializer,
 )
 from .filters import ListingFilter
-from .permissions import IsAuthorOrReadOnly
+from .permissions import IsAuthorOrReadOnly, IsModeratorOrAdmin
 
 User = get_user_model()
 
@@ -532,6 +537,176 @@ class MyListingsView(generics.ListAPIView):
             401: OpenApiResponse(description="Not authenticated")
         },
         description="Get current user's listings with all statuses"
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+
+# Admin Views
+
+class AdminStatsView(APIView):
+    """
+    API endpoint for admin statistics
+    """
+    permission_classes = [IsAuthenticated, IsModeratorOrAdmin]
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=AdminStatsSerializer,
+                description="Admin statistics"
+            ),
+            403: OpenApiResponse(description="Permission denied")
+        },
+        description="Get admin statistics (moderators and staff only)"
+    )
+    def get(self, request):
+        # Total users count
+        total_users = User.objects.filter(is_active=True).count()
+        
+        # Listings counts
+        total_listings = Listing.objects.count()
+        active_listings = Listing.objects.filter(status='approved').count()
+        pending_listings = Listing.objects.filter(status='pending').count()
+        
+        # Activity chart - listings created per day for last 30 days
+        today = timezone.now().date()
+        start_date = today - timedelta(days=29)
+        
+        # Get listings grouped by date
+        activity_data = []
+        for i in range(30):
+            date = start_date + timedelta(days=i)
+            count = Listing.objects.filter(
+                created_at__date=date
+            ).count()
+            activity_data.append({
+                'date': date,
+                'count': count
+            })
+        
+        data = {
+            'total_users': total_users,
+            'total_listings': total_listings,
+            'active_listings': active_listings,
+            'pending_listings': pending_listings,
+            'activity_chart': activity_data
+        }
+        
+        serializer = AdminStatsSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminListingsView(generics.ListAPIView):
+    """
+    API endpoint for admin to list all listings with filters
+    """
+    permission_classes = [IsAuthenticated, IsModeratorOrAdmin]
+    serializer_class = AdminListingSerializer
+    pagination_class = ListingPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['title', 'description']
+    ordering_fields = ['created_at', 'updated_at', 'status']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        queryset = Listing.objects.select_related('category', 'author').prefetch_related('images')
+        
+        # Filter by status
+        status_filter = self.request.query_params.get('status')
+        if status_filter and status_filter in ['pending', 'approved', 'rejected']:
+            queryset = queryset.filter(status=status_filter)
+        
+        return queryset
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=AdminListingSerializer(many=True),
+                description="Paginated list of all listings"
+            ),
+            403: OpenApiResponse(description="Permission denied")
+        },
+        parameters=[
+            OpenApiParameter(name='status', type=str, description='Filter by status: pending, approved, rejected'),
+            OpenApiParameter(name='search', type=str, description='Search in title and description'),
+            OpenApiParameter(name='ordering', type=str, description='Sort by: created_at, -created_at, status'),
+        ],
+        description="Get paginated list of all listings (moderators and staff only)"
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+
+class AdminModerationView(APIView):
+    """
+    API endpoint to moderate listings
+    """
+    permission_classes = [IsAuthenticated, IsModeratorOrAdmin]
+
+    @extend_schema(
+        request=ModerationSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=ListingDetailSerializer,
+                description="Listing moderated successfully"
+            ),
+            400: OpenApiResponse(description="Validation error"),
+            403: OpenApiResponse(description="Permission denied"),
+            404: OpenApiResponse(description="Listing not found")
+        },
+        description="Moderate listing - approve or reject (moderators and staff only)"
+    )
+    def patch(self, request, id):
+        try:
+            listing = Listing.objects.get(id=id)
+        except Listing.DoesNotExist:
+            return Response(
+                {'error': 'Listing not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        serializer = ModerationSerializer(data=request.data)
+        if serializer.is_valid():
+            new_status = serializer.validated_data['status']
+            listing.status = new_status
+            listing.save()
+            
+            detail_serializer = ListingDetailSerializer(
+                listing,
+                context={'request': request}
+            )
+            return Response(detail_serializer.data, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AdminUsersListView(generics.ListAPIView):
+    """
+    API endpoint for admin to list all users
+    """
+    permission_classes = [IsAuthenticated, IsModeratorOrAdmin]
+    serializer_class = AdminUserSerializer
+    pagination_class = ListingPagination
+    queryset = User.objects.all().order_by('-date_joined')
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['username', 'email', 'first_name', 'last_name']
+    ordering_fields = ['date_joined', 'username', 'email']
+    ordering = ['-date_joined']
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=AdminUserSerializer(many=True),
+                description="Paginated list of all users"
+            ),
+            403: OpenApiResponse(description="Permission denied")
+        },
+        parameters=[
+            OpenApiParameter(name='search', type=str, description='Search in username, email, name'),
+            OpenApiParameter(name='ordering', type=str, description='Sort by: date_joined, -date_joined, username'),
+        ],
+        description="Get paginated list of all users (moderators and staff only)"
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)

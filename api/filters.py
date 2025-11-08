@@ -1,14 +1,14 @@
-from django_filters import rest_framework as filters
+import django_filters
 from .models import Listing
 
 
-class ListingFilter(filters.FilterSet):
+class ListingFilter(django_filters.FilterSet):
     """
-    Filter for listings with category and price range
+    Filter for listings by category and price range
     """
-    category = filters.NumberFilter(field_name='category__id')
-    min_price = filters.NumberFilter(field_name='price', lookup_expr='gte')
-    max_price = filters.NumberFilter(field_name='price', lookup_expr='lte')
+    category = django_filters.NumberFilter(field_name='category__id')
+    min_price = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
+    max_price = django_filters.NumberFilter(field_name='price', lookup_expr='lte')
 
     class Meta:
         model = Listing

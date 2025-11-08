@@ -16,6 +16,10 @@ from .views import (
     ListingUpdateView,
     ListingDeleteView,
     MyListingsView,
+    AdminStatsView,
+    AdminListingsView,
+    AdminModerationView,
+    AdminUsersListView,
 )
 
 urlpatterns = [
@@ -42,4 +46,10 @@ urlpatterns = [
     path("listings/create/", ListingCreateView.as_view(), name="listing-create"),
     path("listings/<int:id>/update/", ListingUpdateView.as_view(), name="listing-update"),
     path("listings/<int:id>/delete/", ListingDeleteView.as_view(), name="listing-delete"),
+    
+    # Admin endpoints
+    path("admin/stats/", AdminStatsView.as_view(), name="admin-stats"),
+    path("admin/listings/", AdminListingsView.as_view(), name="admin-listings"),
+    path("admin/listings/<int:id>/moderate/", AdminModerationView.as_view(), name="admin-moderate"),
+    path("admin/users/", AdminUsersListView.as_view(), name="admin-users"),
 ]

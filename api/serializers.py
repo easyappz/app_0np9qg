@@ -1,6 +1,7 @@
 import re
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.db import models
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -424,3 +425,95 @@ class ListingUpdateSerializer(serializers.ModelSerializer):
                 )
 
         return instance
+
+
+# Admin Serializers
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for admin user list with listings count
+    """
+    listings_count = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = (
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'phone', 'avatar_url', 'is_moderator', 'is_staff', 
+            'is_active', 'date_joined', 'listings_count'
+        )
+        read_only_fields = fields
+
+    def get_listings_count(self, obj):
+        """
+        Get total count of user's listings
+        """
+        return obj.listings.count()
+
+    def get_avatar_url(self, obj):
+        """
+        Get full URL for avatar
+        """
+        if obj.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None
+
+
+class AdminListingSerializer(serializers.ModelSerializer):
+    """
+    Serializer for admin listing list with full details
+    """
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    author_username = serializers.CharField(source='author.username', read_only=True)
+    author_email = serializers.CharField(source='author.email', read_only=True)
+    images_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Listing
+        fields = (
+            'id', 'title', 'description', 'price', 'category_name',
+            'author_username', 'author_email', 'status', 'author_phone',
+            'images_count', 'created_at', 'updated_at'
+        )
+        read_only_fields = fields
+
+    def get_images_count(self, obj):
+        return obj.images.count()
+
+
+class ModerationSerializer(serializers.Serializer):
+    """
+    Serializer for moderating listings
+    """
+    status = serializers.ChoiceField(
+        choices=['approved', 'rejected'],
+        required=True
+    )
+
+    def validate_status(self, value):
+        if value not in ['approved', 'rejected']:
+            raise serializers.ValidationError("Status must be 'approved' or 'rejected'.")
+        return value
+
+
+class ActivityDataSerializer(serializers.Serializer):
+    """
+    Serializer for activity chart data point
+    """
+    date = serializers.DateField()
+    count = serializers.IntegerField()
+
+
+class AdminStatsSerializer(serializers.Serializer):
+    """
+    Serializer for admin statistics
+    """
+    total_users = serializers.IntegerField()
+    total_listings = serializers.IntegerField()
+    active_listings = serializers.IntegerField()
+    pending_listings = serializers.IntegerField()
+    activity_chart = ActivityDataSerializer(many=True)
