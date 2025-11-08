@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getMyListings, deleteListing } from '../api/listingsService';
+import { deleteListing } from '../api/listings';
+import { getMyListings } from '../api/listingsService';
 import MyListingCard from '../components/MyListingCard';
 import './MyListingsPage.css';
 

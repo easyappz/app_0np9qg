@@ -27,3 +27,8 @@ export const getCategories = async () => {
   const response = await instance.get('/api/categories/');
   return response.data;
 };
+
+export const deleteListing = async (id) => {
+  const response = await instance.delete(`/api/listings/${id}/delete/`);
+  return response.data;
+};
