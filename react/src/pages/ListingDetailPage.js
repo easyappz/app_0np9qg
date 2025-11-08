@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getListing, deleteListing } from '../api/listings';
+import { getListingById, deleteListing } from '../api/listings';
 import { useAuth } from '../context/AuthContext';
 import ImageSlider from '../components/ImageSlider';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
@@ -21,7 +21,7 @@ const ListingDetailPage = () => {
     const fetchListing = async () => {
       try {
         setLoading(true);
-        const data = await getListing(id);
+        const data = await getListingById(id);
         setListing(data);
         setError(null);
       } catch (err) {
