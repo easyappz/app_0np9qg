@@ -26,6 +26,24 @@ class User(AbstractUser):
         verbose_name="Модератор",
         help_text="Является ли пользователь модератором"
     )
+    
+    groups = models.ManyToManyField(
+        'auth.Group',
+        blank=True,
+        related_name='custom_user_groups',
+        related_query_name='custom_user',
+        verbose_name="Группы",
+        help_text="Группы, к которым принадлежит пользователь"
+    )
+    
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        blank=True,
+        related_name='custom_user_permissions',
+        related_query_name='custom_user',
+        verbose_name="Права пользователя",
+        help_text="Специфичные права пользователя"
+    )
 
     class Meta:
         verbose_name = "Пользователь"
