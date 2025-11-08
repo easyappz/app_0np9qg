@@ -1,0 +1,177 @@
+.moderation-row {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
+  transition: box-shadow 0.2s ease;
+}
+
+.moderation-row:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.moderation-row-content {
+  padding: 20px;
+}
+
+.moderation-row-info {
+  margin-bottom: 16px;
+}
+
+.moderation-row-title {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.moderation-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #666;
+}
+
+.moderation-row-meta span {
+  display: flex;
+  align-items: center;
+}
+
+.moderation-row-meta strong {
+  margin-right: 4px;
+  color: #333;
+}
+
+.moderation-row-status {
+  margin-top: 8px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-approved {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-rejected {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.moderation-row-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.moderation-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.moderation-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.moderation-btn-view {
+  background-color: #3498db;
+  color: white;
+}
+
+.moderation-btn-view:hover:not(:disabled) {
+  background-color: #2980b9;
+}
+
+.moderation-btn-approve {
+  background-color: #27ae60;
+  color: white;
+}
+
+.moderation-btn-approve:hover:not(:disabled) {
+  background-color: #229954;
+}
+
+.moderation-btn-reject {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.moderation-btn-reject:hover:not(:disabled) {
+  background-color: #c0392b;
+}
+
+.moderation-btn-cancel {
+  background-color: #95a5a6;
+  color: white;
+}
+
+.moderation-btn-cancel:hover:not(:disabled) {
+  background-color: #7f8c8d;
+}
+
+.moderation-row-confirm {
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.moderation-row-confirm p {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.moderation-confirm-actions {
+  display: flex;
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .moderation-row-content {
+    padding: 16px;
+  }
+
+  .moderation-row-title {
+    font-size: 16px;
+  }
+
+  .moderation-row-meta {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .moderation-row-actions {
+    flex-direction: column;
+  }
+
+  .moderation-btn {
+    width: 100%;
+  }
+
+  .moderation-confirm-actions {
+    flex-direction: column;
+  }
+}

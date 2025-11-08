@@ -15,8 +15,8 @@ import MyListingsPage from './pages/MyListingsPage';
 import CreateListingPage from './pages/CreateListingPage';
 import EditListingPage from './pages/EditListingPage';
 import ListingDetailPage from './pages/ListingDetailPage';
-import AdminDashboardPage from './pages/AdminDashboardPage';
-import ModerationPage from './pages/ModerationPage';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import Moderation from './pages/admin/Moderation';
 import NotFoundPage from './pages/NotFoundPage';
 
 import './App.css';
@@ -24,7 +24,21 @@ import './App.css';
 function App() {
   useEffect(() => {
     // Notify parent window about available routes
-    notifyRoutes();
+    const routes = [
+      '/',
+      '/listing/:id',
+      '/login',
+      '/register',
+      '/profile',
+      '/my-listings',
+      '/create-listing',
+      '/edit-listing/:id',
+      '/admin',
+      '/admin/moderation'
+    ];
+    if (window.handleRoutes) {
+      window.handleRoutes(routes);
+    }
   }, []);
 
   return (
@@ -78,7 +92,7 @@ function App() {
                 path="/admin"
                 element={
                   <ProtectedRoute requireModerator={true}>
-                    <AdminDashboardPage />
+                    <AdminDashboard />
                   </ProtectedRoute>
                 }
               />
@@ -86,7 +100,7 @@ function App() {
                 path="/admin/moderation"
                 element={
                   <ProtectedRoute requireModerator={true}>
-                    <ModerationPage />
+                    <Moderation />
                   </ProtectedRoute>
                 }
               />
