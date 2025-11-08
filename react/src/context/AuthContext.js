@@ -1,36 +1,33 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { instance } from '../api/axios';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { login as apiLogin, register as apiRegister, getCurrentUser } from '../api/auth';
 
 const AuthContext = createContext(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [accessToken, setAccessToken] = useState(localStorage.getItem('accessToken'));
-  const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Check if user is moderator
-  const isModerator = user?.is_staff || user?.is_superuser || false;
-
-  // Load user data on mount
   useEffect(() => {
     const initAuth = async () => {
-      const token = localStorage.getItem('accessToken');
+      const token = localStorage.getItem('token');
       if (token) {
         try {
-          await loadUserData();
+          const userData = await getCurrentUser();
+          setUser(userData);
+          setIsAuthenticated(true);
         } catch (error) {
-          console.error('Failed to load user data:', error);
-          logout();
+          console.error('Failed to fetch user:', error);
+          localStorage.removeItem('token');
+          localStorage.removeItem('refresh_token');
         }
       }
       setLoading(false);
@@ -39,146 +36,68 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
-  // Update localStorage when tokens change
-  useEffect(() => {
-    if (accessToken) {
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('token', accessToken);
-      setIsAuthenticated(true);
-    } else {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('token');
-      setIsAuthenticated(false);
-    }
-  }, [accessToken]);
-
-  useEffect(() => {
-    if (refreshToken) {
-      localStorage.setItem('refreshToken', refreshToken);
-    } else {
-      localStorage.removeItem('refreshToken');
-    }
-  }, [refreshToken]);
-
-  // Load user data
-  const loadUserData = async () => {
+  const login = async (username, password) => {
     try {
-      const response = await instance.get('/api/auth/me/');
-      setUser(response.data);
-      setIsAuthenticated(true);
-    } catch (error) {
-      console.error('Error loading user data:', error);
-      throw error;
-    }
-  };
-
-  // Login function
-  const login = async (email, password) => {
-    try {
-      const response = await instance.post('/api/auth/login/', {
-        email,
-        password,
-      });
-
-      const { access, refresh, user: userData } = response.data;
-
-      setAccessToken(access);
-      setRefreshToken(refresh);
+      const response = await apiLogin(username, password);
+      const { user: userData, tokens } = response;
+      
+      localStorage.setItem('token', tokens.access);
+      localStorage.setItem('refresh_token', tokens.refresh);
+      
       setUser(userData);
       setIsAuthenticated(true);
-
+      
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
       return {
         success: false,
-        error: error.response?.data?.detail || 'Ошибка входа',
+        error: error.response?.data?.error || 'Ошибка входа'
       };
     }
   };
 
-  // Register function
   const register = async (userData) => {
     try {
-      const response = await instance.post('/api/auth/register/', userData);
-
-      const { access, refresh, user: newUser } = response.data;
-
-      setAccessToken(access);
-      setRefreshToken(refresh);
+      const response = await apiRegister(userData);
+      const { user: newUser, tokens } = response;
+      
+      localStorage.setItem('token', tokens.access);
+      localStorage.setItem('refresh_token', tokens.refresh);
+      
       setUser(newUser);
       setIsAuthenticated(true);
-
+      
       return { success: true };
     } catch (error) {
       console.error('Registration error:', error);
       return {
         success: false,
-        error: error.response?.data || 'Ошибка регистрации',
+        errors: error.response?.data || { general: 'Ошибка регистрации' }
       };
     }
   };
 
-  // Logout function
   const logout = () => {
-    setAccessToken(null);
-    setRefreshToken(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
     setUser(null);
     setIsAuthenticated(false);
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('token');
   };
 
-  // Refresh access token
-  const refreshAccessToken = async () => {
-    try {
-      const response = await instance.post('/api/auth/refresh/', {
-        refresh: refreshToken,
-      });
-
-      const { access } = response.data;
-      setAccessToken(access);
-
-      return access;
-    } catch (error) {
-      console.error('Token refresh error:', error);
-      logout();
-      throw error;
-    }
-  };
-
-  // Update user profile
-  const updateProfile = async (profileData) => {
-    try {
-      const response = await instance.patch('/api/auth/me/', profileData);
-      setUser(response.data);
-      return { success: true, data: response.data };
-    } catch (error) {
-      console.error('Profile update error:', error);
-      return {
-        success: false,
-        error: error.response?.data || 'Ошибка обновления профиля',
-      };
-    }
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser);
   };
 
   const value = {
     user,
-    accessToken,
-    refreshToken,
     loading,
     isAuthenticated,
-    isModerator,
     login,
     register,
     logout,
-    refreshAccessToken,
-    updateProfile,
-    loadUserData,
+    updateUser
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
-export default AuthContext;
