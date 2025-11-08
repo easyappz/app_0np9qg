@@ -1,14 +1,18 @@
 from django.contrib.auth import get_user_model, authenticate
 from django.utils import timezone
-from rest_framework import status
+from django.db.models import Q
+from rest_framework import status, generics, filters
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.generics import RetrieveUpdateAPIView, RetrieveAPIView
+from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
+from django_filters.rest_framework import DjangoFilterBackend
 
+from .models import Listing, Category
 from .serializers import (
     MessageSerializer,
     UserRegistrationSerializer,
@@ -17,7 +21,14 @@ from .serializers import (
     UserUpdateSerializer,
     PublicUserSerializer,
     TokenSerializer,
+    CategorySerializer,
+    ListingListSerializer,
+    ListingDetailSerializer,
+    ListingCreateSerializer,
+    ListingUpdateSerializer,
 )
+from .filters import ListingFilter
+from .permissions import IsAuthorOrReadOnly
 
 User = get_user_model()
 
@@ -268,6 +279,259 @@ class UserDetailView(RetrieveAPIView):
                 description='User ID'
             )
         ]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+
+# Listing Views
+
+class ListingPagination(PageNumberPagination):
+    """
+    Pagination for listings - 12 items per page
+    """
+    page_size = 12
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class CategoryListView(generics.ListAPIView):
+    """
+    API endpoint to list all categories
+    """
+    permission_classes = [AllowAny]
+    serializer_class = CategorySerializer
+    queryset = Category.objects.all()
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=CategorySerializer(many=True),
+                description="List of categories"
+            )
+        },
+        description="Get list of all categories"
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+
+class ListingListView(generics.ListAPIView):
+    """
+    API endpoint to list listings with filtering, search and sorting
+    """
+    permission_classes = [AllowAny]
+    serializer_class = ListingListSerializer
+    pagination_class = ListingPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = ListingFilter
+    search_fields = ['title', 'description']
+    ordering_fields = ['created_at', 'price']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        """
+        Return approved listings for regular users, all for staff/moderators
+        """
+        user = self.request.user
+        if user.is_authenticated and (user.is_staff or user.is_moderator):
+            return Listing.objects.select_related('category', 'author').prefetch_related('images')
+        return Listing.objects.filter(status='approved').select_related('category', 'author').prefetch_related('images')
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=ListingListSerializer(many=True),
+                description="Paginated list of listings"
+            )
+        },
+        parameters=[
+            OpenApiParameter(name='category', type=int, description='Filter by category ID'),
+            OpenApiParameter(name='min_price', type=float, description='Minimum price'),
+            OpenApiParameter(name='max_price', type=float, description='Maximum price'),
+            OpenApiParameter(name='search', type=str, description='Search in title and description'),
+            OpenApiParameter(name='ordering', type=str, description='Sort by: created_at, -created_at, price, -price'),
+        ],
+        description="Get paginated list of listings with filters"
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+
+class ListingDetailView(generics.RetrieveAPIView):
+    """
+    API endpoint to get single listing details
+    """
+    permission_classes = [AllowAny]
+    serializer_class = ListingDetailSerializer
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        """
+        Return approved listings or own listings for authenticated users
+        """
+        user = self.request.user
+        if user.is_authenticated:
+            # Show approved listings + own listings + all listings for staff/moderators
+            if user.is_staff or user.is_moderator:
+                return Listing.objects.select_related('category', 'author').prefetch_related('images')
+            return Listing.objects.filter(
+                Q(status='approved') | Q(author=user)
+            ).select_related('category', 'author').prefetch_related('images')
+        return Listing.objects.filter(status='approved').select_related('category', 'author').prefetch_related('images')
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=ListingDetailSerializer,
+                description="Listing details"
+            ),
+            404: OpenApiResponse(description="Listing not found")
+        },
+        description="Get single listing details"
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+
+class ListingCreateView(generics.CreateAPIView):
+    """
+    API endpoint to create new listing
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = ListingCreateSerializer
+
+    @extend_schema(
+        request=ListingCreateSerializer,
+        responses={
+            201: OpenApiResponse(
+                response=ListingDetailSerializer,
+                description="Listing created successfully"
+            ),
+            400: OpenApiResponse(description="Validation error"),
+            401: OpenApiResponse(description="Not authenticated")
+        },
+        description="Create new listing (authenticated users only)"
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        # Return detailed serializer
+        detail_serializer = ListingDetailSerializer(
+            serializer.instance,
+            context={'request': request}
+        )
+        headers = self.get_success_headers(detail_serializer.data)
+        return Response(
+            detail_serializer.data,
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
+
+
+class ListingUpdateView(generics.UpdateAPIView):
+    """
+    API endpoint to update own listing
+    """
+    permission_classes = [IsAuthenticated, IsAuthorOrReadOnly]
+    serializer_class = ListingUpdateSerializer
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        """
+        Users can only update their own listings
+        """
+        return Listing.objects.filter(author=self.request.user)
+
+    @extend_schema(
+        request=ListingUpdateSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=ListingDetailSerializer,
+                description="Listing updated successfully"
+            ),
+            400: OpenApiResponse(description="Validation error"),
+            401: OpenApiResponse(description="Not authenticated"),
+            403: OpenApiResponse(description="Not the author"),
+            404: OpenApiResponse(description="Listing not found")
+        },
+        description="Update own listing (authenticated users only)"
+    )
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        # Return detailed serializer
+        detail_serializer = ListingDetailSerializer(
+            serializer.instance,
+            context={'request': request}
+        )
+        return Response(detail_serializer.data)
+
+
+class ListingDeleteView(generics.DestroyAPIView):
+    """
+    API endpoint to delete own listing
+    """
+    permission_classes = [IsAuthenticated, IsAuthorOrReadOnly]
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        """
+        Users can only delete their own listings
+        """
+        return Listing.objects.filter(author=self.request.user)
+
+    @extend_schema(
+        responses={
+            204: OpenApiResponse(description="Listing deleted successfully"),
+            401: OpenApiResponse(description="Not authenticated"),
+            403: OpenApiResponse(description="Not the author"),
+            404: OpenApiResponse(description="Listing not found")
+        },
+        description="Delete own listing (authenticated users only)"
+    )
+    def delete(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)
+
+
+class MyListingsView(generics.ListAPIView):
+    """
+    API endpoint to get current user's listings with all statuses
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = ListingListSerializer
+    pagination_class = ListingPagination
+
+    def get_queryset(self):
+        """
+        Return current user's listings
+        """
+        return Listing.objects.filter(
+            author=self.request.user
+        ).select_related('category', 'author').prefetch_related('images')
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=ListingListSerializer(many=True),
+                description="List of user's listings"
+            ),
+            401: OpenApiResponse(description="Not authenticated")
+        },
+        description="Get current user's listings with all statuses"
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)

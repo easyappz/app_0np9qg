@@ -9,6 +9,13 @@ from .views import (
     CurrentUserView,
     UserProfileView,
     UserDetailView,
+    CategoryListView,
+    ListingListView,
+    ListingDetailView,
+    ListingCreateView,
+    ListingUpdateView,
+    ListingDeleteView,
+    MyListingsView,
 )
 
 urlpatterns = [
@@ -24,4 +31,15 @@ urlpatterns = [
     
     # User endpoints
     path("users/<int:id>/", UserDetailView.as_view(), name="user-detail"),
+    
+    # Category endpoints
+    path("categories/", CategoryListView.as_view(), name="category-list"),
+    
+    # Listing endpoints
+    path("listings/", ListingListView.as_view(), name="listing-list"),
+    path("listings/my/", MyListingsView.as_view(), name="my-listings"),
+    path("listings/<int:id>/", ListingDetailView.as_view(), name="listing-detail"),
+    path("listings/create/", ListingCreateView.as_view(), name="listing-create"),
+    path("listings/<int:id>/update/", ListingUpdateView.as_view(), name="listing-update"),
+    path("listings/<int:id>/delete/", ListingDeleteView.as_view(), name="listing-delete"),
 ]
