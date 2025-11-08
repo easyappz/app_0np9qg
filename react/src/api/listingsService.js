@@ -51,3 +51,22 @@ export const getListingById = async (id) => {
   const response = await instance.get(`/api/listings/${id}/`);
   return response.data;
 };
+
+/**
+ * Get current user's listings (all statuses)
+ * @returns {Promise} API response with user's listings
+ */
+export const getMyListings = async () => {
+  const response = await instance.get('/api/listings/my/');
+  return response.data;
+};
+
+/**
+ * Delete listing by ID
+ * @param {number} id - Listing ID
+ * @returns {Promise} API response
+ */
+export const deleteListing = async (id) => {
+  const response = await instance.delete(`/api/listings/${id}/delete/`);
+  return response.data;
+};
