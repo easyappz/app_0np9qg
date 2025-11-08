@@ -7,7 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { notifyRoutes } from './utils/routes';
 
 // Pages
-import HomePage from './pages/HomePage';
+import Home from './pages/Home';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
@@ -34,7 +34,7 @@ function App() {
           <Layout>
             <Routes>
               {/* Public routes */}
-              <Route path="/" element={<HomePage />} />
+              <Route path="/" element={<Home />} />
               <Route path="/listing/:id" element={<ListingDetailPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
