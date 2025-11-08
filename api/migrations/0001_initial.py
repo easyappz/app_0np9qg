@@ -1,11 +1,11 @@
-# Generated migration
+# Generated migration file
 
+from django.conf import settings
 import django.contrib.auth.models
 import django.contrib.auth.validators
-import django.core.validators
-import django.utils.timezone
-from django.conf import settings
 from django.db import migrations, models
+import django.db.models.deletion
+import django.utils.timezone
 
 
 class Migration(migrations.Migration):
@@ -98,18 +98,18 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='listing',
-            index=models.Index(fields=['-created_at'], name='api_listing_created_idx'),
+            index=models.Index(fields=['-created_at'], name='api_listing_created_4b0b8f_idx'),
         ),
         migrations.AddIndex(
             model_name='listing',
-            index=models.Index(fields=['status'], name='api_listing_status_idx'),
+            index=models.Index(fields=['status'], name='api_listing_status_e3b3ef_idx'),
         ),
         migrations.AddIndex(
             model_name='listing',
-            index=models.Index(fields=['category'], name='api_listing_categor_idx'),
+            index=models.Index(fields=['category'], name='api_listing_categor_88d7bd_idx'),
         ),
         migrations.AddIndex(
             model_name='listing',
-            index=models.Index(fields=['price'], name='api_listing_price_idx'),
+            index=models.Index(fields=['price'], name='api_listing_price_4b52e7_idx'),
         ),
     ]
