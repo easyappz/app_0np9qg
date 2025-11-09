@@ -76,14 +76,25 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         Create and return a new user
         """
         validated_data.pop('password_confirm')
+        
+        # Extract fields that are not accepted by create_user
+        phone = validated_data.pop('phone', '')
+        first_name = validated_data.pop('first_name', '')
+        last_name = validated_data.pop('last_name', '')
+        
+        # Create user with only username, email, and password
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
-            phone=validated_data.get('phone', '')
+            password=validated_data['password']
         )
+        
+        # Set additional fields
+        user.first_name = first_name
+        user.last_name = last_name
+        user.phone = phone
+        user.save()
+        
         return user
 
 
